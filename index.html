@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مستكشف قصر الدرعية التاريخي</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Tahoma, sans-serif; }
+        #info {
+            position: absolute; top: 20px; width: 100%; text-align: center;
+            color: white; z-index: 100; pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .ui-btn {
+            position: absolute; bottom: 30px; padding: 12px 25px; font-size: 16px;
+            color: white; border: none; border-radius: 8px; cursor: pointer; z-index: 100;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #connectBtn { left: 50%; transform: translateX(-50%); background: #28a745; }
+        #connectBtn:hover { background: #218838; }
+        
+        #modeBtn { left: 20px; background: #ffc107; color: #333; font-weight: bold; }
+        #modeBtn:hover { background: #e0a800; }
+
+        #resetBtn { right: 20px; background: #dc3545; }
+        #resetBtn:hover { background: #c82333; }
+
+        #historyCard {
+            position: absolute; top: 100px; left: 20px; background: rgba(0, 0, 0, 0.85);
+            color: white; padding: 15px 20px; border-radius: 10px; display: block;
+            max-width: 280px; z-index: 100; border-left: 4px solid #ffc107;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        #hotspotCard {
+            position: absolute; top: 100px; right: 20px; background: rgba(0, 0, 0, 0.85);
+            color: white; padding: 15px 20px; border-radius: 10px; display: none;
+            max-width: 280px; z-index: 100; border-right: 4px solid #ffc107;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        #envBadge {
+            position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.7);
+            color: #ffc107; padding: 10px 15px; border-radius: 8px; font-size: 14px;
+            z-index: 100; border: 1px solid rgba(255, 193, 7, 0.4); display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info">
+        <h1>مستكشف التراث الرقمي - قصر الدرعية التاريخي</h1>
+        <p id="status">في انتظار الاتصال بالأردوينو...</p>
+    </div>
+
+    <div id="envBadge">🌡️ حرارة الغرفة: <span id="tempVal">--</span> °C | 💧 الرطوبة: <span id="humVal">--</span>%</div>
+    
+    <button id="connectBtn" class="ui-btn">اتصال بالأردوينو (الحساسات والبيئة)</button>
+    <button id="modeBtn" class="ui-btn">وضع الليل 🌙</button>
+    <button id="resetBtn" class="ui-btn">إعادة ضبط المنظر 🔄</button>
+
+    <!-- صندوق النبذة التاريخية يظهر في البداية -->
+    <div id="historyCard">
+        <h3 style="margin-top:0; color:#ffc107;">نبذة تاريخية</h3>
+        <p style="margin-bottom:0; font-size: 14px; line-height: 1.6;">تعد الدرعية عاصمة الدولة السعودية الأولى ومهد المجد التاريخي، حيث ترمز للعراقة والأصالة بتصميمها النجدي الفريد.</p>
+    </div>
+
+    <div id="hotspotCard">
+        <h3 id="cardTitle" style="margin-top:0; color:#ffc107;">عنوان المعلم</h3>
+        <p id="cardDesc" style="margin-bottom:0; font-size: 14px; line-height: 1.6;">وصف تفصيلي عن معالم القصر...</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        const scene = new THREE.Scene();
+        let isNight = false;
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 15);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); 
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xfff5e6, 1.2); 
+        dirLight1.position.set(10, 20, 10);
+        scene.add(dirLight1);
+
+        let castleModel;
+        let defaultCamPos = new THREE.Vector3(0, 5, 15);
+        let defaultTarget = new THREE.Vector3(0, 0, 0);
+        
+        const zones = {
+            zone1: { 
+                pos: new THREE.Vector3(-8, 3, 8), target: new THREE.Vector3(0, 0, 0), 
+                text: "البوابة الرئيسية (ZONE 1)",
+                title: "مدخل وبوابة القصر",
+                desc: "تتميز البوابة بالتصميم النجدي الأصيل المصنوع من جذوع النخل والطين."
+            },
+            zone2: { 
+                pos: new THREE.Vector3(0, 12, 10), target: new THREE.Vector3(0, 0, 0), 
+                text: "برج المراقبة (ZONE 2)",
+                title: "البرج الدفاعي الشامخ",
+                desc: "حصن أمني استراتيجي عالي الإشراف للمراقبة والدفاع عن أسوار القصر."
+            },
+            zone3: { 
+                pos: new THREE.Vector3(10, 4, -5), target: new THREE.Vector3(0, 0, 0), 
+                text: "المجالس الملكية (ZONE 3)",
+                title: "ساحة المجالس والفعاليات",
+                desc: "منطقة الاستقبال الكبرى التي شهدت الاجتماعات الرسمية للدولة."
+            }
+        };
+
+        let targetCamPos = camera.position.clone();
+        let targetCtrlTarget = new THREE.Vector3(0, 0, 0);
+        let isTransitioning = false;
+
+        // دالة النطق الصوتي التلقائي
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ar-SA';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // قراءة النبذة التاريخية فور فتح الصفحة
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                speakText("مرحباً بك في مستكشف قصر الدرعية التاريخي. تعد الدرعية عاصمة الدولة السعودية الأولى ومهد المجد التاريخي.");
+            }, 1000);
+        });
+
+        const loader = new THREE.GLTFLoader();
+        loader.load('diriyah.glb', function (gltf) {
+            castleModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(castleModel);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+
+            castleModel.position.sub(center);
+            scene.add(castleModel);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            defaultCamPos.set(0, maxDim * 0.8, maxDim * 2);
+            
+            camera.position.copy(defaultCamPos);
+            targetCamPos.copy(defaultCamPos);
+            controls.target.set(0, 0, 0);
+            defaultTarget.copy(controls.target);
+            targetCtrlTarget.copy(controls.target);
+            controls.update();
+        }, undefined, function (error) {
+            console.error("خطأ في تحميل ملف الـ 3D:", error);
+        });
+
+        const modeBtn = document.getElementById('modeBtn');
+        modeBtn.addEventListener('click', () => {
+            isNight = !isNight;
+            toggleNightMode(isNight);
+        });
+
+        // زر إعادة ضبط المنظر والكاميرا
+        const resetBtn = document.getElementById('resetBtn');
+        resetBtn.addEventListener('click', () => {
+            targetCamPos.copy(defaultCamPos);
+            targetCtrlTarget.copy(defaultTarget);
+            isTransitioning = true;
+            document.getElementById('hotspotCard').style.display = 'none';
+            document.getElementById('historyCard').style.display = 'block';
+            speakText("تم إعادة ضبط منظور الكاميرا.");
+        });
+
+        function toggleNightMode(night) {
+            isNight = night;
+            if (isNight) {
+                scene.background.set(0x050510);
+                ambientLight.color.set(0x446699);
+                modeBtn.innerText = "وضع النهار ☀️";
+            } else {
+                scene.background.set(0x1a1a2e);
+                ambientLight.color.set(0xffffff);
+                modeBtn.innerText = "وضع الليل 🌙";
+            }
+        }
+
+        function showHotspotInfo(zoneKey) {
+            document.getElementById('historyCard').style.display = 'none';
+
+            const card = document.getElementById('hotspotCard');
+            const title = zones[zoneKey].title;
+            const desc = zones[zoneKey].desc;
+
+            document.getElementById('cardTitle').innerText = title;
+            document.getElementById('cardDesc').innerText = desc;
+            card.style.display = 'block';
+
+            speakText(title + ". " + desc);
+        }
+
+        renderer.domElement.addEventListener('pointerdown', () => {
+            isTransitioning = false;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (isTransitioning) {
+                camera.position.lerp(targetCamPos, 0.05);
+                controls.target.lerp(targetCtrlTarget, 0.05);
+                
+                if (camera.position.distanceTo(targetCamPos) < 0.1) {
+                    isTransitioning = false;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        const connectBtn = document.getElementById('connectBtn');
+        const statusDiv = document.getElementById('status');
+        const envBadge = document.getElementById('envBadge');
+
+        connectBtn.addEventListener('click', async () => {
+            try {
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+
+                statusDiv.innerText = "متصل بنجاح! استخدم الحساسات للتنقل";
+                connectBtn.style.display = "none";
+                envBadge.style.display = "block";
+
+                const textDecoder = new TextDecoderStream();
+                port.readable.pipeTo(textDecoder.writable);
+                const reader = textDecoder.readable.getReader();
+
+                let buffer = "";
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        buffer += value;
+                        let lines = buffer.split("\n");
+                        buffer = lines.pop();
+
+                        for (let line of lines) {
+                            let data = line.trim();
+                            
+                            if (data.includes("ZONE1")) {
+                                statusDiv.innerText = `حساس المدخل: ${zones.zone1.text}`;
+                                targetCamPos.copy(zones.zone1.pos);
+                                targetCtrlTarget.copy(zones.zone1.target);
+                                isTransitioning = true;
+                                showHotspotInfo('zone1');
+                            } else if (data.includes("ZONE2")) {
+                                statusDiv.innerText = `حساس البرج: ${zones.zone2.text}`;
+                                targetCamPos.copy(zones.zone2.pos);
+                                targetCtrlTarget.copy(zones.zone2.target);
+                                isTransitioning = true;
+                                showHotspotInfo('zone2');
+                            } else if (data.includes("ZONE3")) {
+                                statusDiv.innerText = `حساس الساحة: ${zones.zone3.text}`;
+                                targetCamPos.copy(zones.zone3.pos);
+                                targetCtrlTarget.copy(zones.zone3.target);
+                                isTransitioning = true;
+                                showHotspotInfo('zone3');
+                            }
+                            
+                            else if (data.startsWith("ENV:")) {
+                                let parts = data.replace("ENV:", "").split(",");
+                                if (parts.length === 2) {
+                                    let temp = parseFloat(parts[0]);
+                                    let hum = parseFloat(parts[1]);
+                                    
+                                    document.getElementById('tempVal').innerText = temp;
+                                    document.getElementById('humVal').innerText = hum;
+
+                                    if (temp >= 30 && !isNight) {
+                                        toggleNightMode(true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("خطأ في الاتصال:", error);
+                statusDiv.innerText = "فشل الاتصال بالأردوينو.";
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.render(scene, camera);
+        });
+    </script>
+</body>
+</html>
