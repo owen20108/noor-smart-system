@@ -1,5 +1,21 @@
 # noor-smart-system
-Interactive Visitor Station &amp; Heritage Protection Hub for WRO 2026
+Arduino-code مجلد لعرض كود الاردينو
+
+arduino-components-installment-guide مجلد به دليل توصيلات الاردينو 
+
+diriyah-3dModel مجلد به مجسم الدرعية  
+
+full-project-shot  مجلد لعرض لقطات فيديو للمشروع قصيرة
+
+install-diriyah-cartoon-with-arduino-components مجلد توثيق تركيب مجسم الكرتون مع المشروع 
+
+
+making-of-Dirriyah-cartoon  مجلد لعرض عمل مجسم قصر الدرعية يدويا بالفيديو
+
+testing- arduino with web api مجلد لعرض توصيل واختبار واجهة المشروع مع الاردينو
+
+web-interface-project-full ملفات واجهة المشروع 
+
 # Noor Smart System | نظام نور الذكي
 Interactive Visitor Station & Heritage Protection Hub | WRO 2026 (Robots Meet Culture)
 
